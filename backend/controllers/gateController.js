@@ -166,45 +166,64 @@ const checkOut = async (req, res) => {
 
 
 const reqApproval = async (req, res) => {
-  const { visitorId, gateId } = req.body; // gateId optional if you want to track it
+  const { visitorId, gateId } = req.body;
+  console.log('Request approval called with:', { visitorId, gateId });
 
   if (!visitorId) {
+    console.log('Missing visitorId in request');
     return res.status(400).json({ message: 'visitorId is required' });
   }
 
   try {
+    console.log('Finding visitor:', visitorId);
     const visitor = await Visitor.findById(visitorId).populate('hostEmployee');
     if (!visitor) {
+      console.log('Visitor not found:', visitorId);
       return res.status(404).json({ message: 'Visitor not found' });
     }
+    console.log('Visitor found:', visitor);
 
+    console.log('Finding host:', visitor.hostEmployee._id);
     const host = await Host.findById(visitor.hostEmployee._id);
     if (!host) {
+      console.log('Host not found:', visitor.hostEmployee._id);
       return res.status(404).json({ message: 'Host not found' });
     }
+    console.log('Host found:', host);
 
     // Add to host's visitRequestQueue if not already there
     if (!host.visitRequestQueue.includes(visitor._id)) {
+      console.log('Adding visitor to host queue');
       host.visitRequestQueue.push(visitor._id);
       await host.save();
+      console.log('Host queue updated');
+    } else {
+      console.log('Visitor already in host queue');
     }
 
     // Update visitor status
+    console.log('Updating visitor status to Waiting');
     visitor.status = 'Waiting';
     await visitor.save();
+    console.log('Visitor status updated');
 
     // 🔔 Real-time notify host via socket
     const hostSocket = req.hostSockets.get(host._id.toString());
     if (hostSocket) {
+      console.log('Sending socket notification to host');
       hostSocket.emit('newApprovalRequest', {
         message: 'New visitor approval request',
-        visitorId: visitor._id.toString(), // optional data
+        visitorId: visitor._id.toString(),
       });
+      console.log('Socket notification sent');
+    } else {
+      console.log('Host socket not found');
     }
 
+    console.log('Approval request processed successfully');
     res.status(200).json({ message: 'Approval request sent to host' });
   } catch (err) {
-    console.error(err);
+    console.error('Error in reqApproval:', err);
     res.status(500).json({ message: 'Error sending approval request', error: err.message });
   }
 };
@@ -271,7 +290,7 @@ const getTodaysVisitors = async (req, res) => {
 
     res.status(200).json(visitors);
   } catch (error) {
-    console.error('Error fetching today’s visitors:', error);
+    console.error("Error fetching today's visitors:", error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };

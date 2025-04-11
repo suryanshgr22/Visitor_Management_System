@@ -180,41 +180,67 @@ const pendingReq = async (req, res) => {
 const approve = async (req, res) => {
   const hostId = req.user.id;
   const { visitorId } = req.body;
+  console.log('Approve request received:', { hostId, visitorId });
 
   if (!visitorId) {
+    console.log('Missing visitorId in request');
     return res.status(400).json({ message: 'visitorId is required' });
   }
 
   try {
+    console.log('Finding host:', hostId);
     const host = await Host.findById(hostId);
-    const visitor = await Visitor.findById(visitorId);
-
-    if (!host || !visitor) {
-      return res.status(404).json({ message: 'Host or Visitor not found' });
+    if (!host) {
+      console.log('Host not found:', hostId);
+      return res.status(404).json({ message: 'Host not found' });
     }
+    console.log('Host found:', host);
+
+    console.log('Finding visitor:', visitorId);
+    const visitor = await Visitor.findById(visitorId);
+    if (!visitor) {
+      console.log('Visitor not found:', visitorId);
+      return res.status(404).json({ message: 'Visitor not found' });
+    }
+    console.log('Visitor found:', visitor);
 
     // Update visitor status
+    console.log('Updating visitor status to Approved');
     visitor.status = 'Approved';
     await visitor.save();
+    console.log('Visitor status updated');
 
     // Remove visitor from queue
+    console.log('Removing visitor from host queue');
     host.visitRequestQueue = host.visitRequestQueue.filter(
       (id) => id.toString() !== visitorId
     );
     await host.save();
+    console.log('Host queue updated');
 
     // 🔔 Real-time notify gate (if needed)
-    const gateId = visitor.gate?.toString?.(); // assuming you stored gateId in visitor
-    const gateSocket = req.gateSockets.get(gateId);
-    if (gateSocket) {
-      gateSocket.emit('visitorStatusUpdated', {
-        visitorId: visitor._id.toString(),
-        status: 'Approved',
-      });
+    const gateId = visitor.gate?.toString?.();
+    if (gateId) {
+      console.log('Finding gate socket:', gateId);
+      const gateSocket = req.gateSockets.get(gateId);
+      if (gateSocket) {
+        console.log('Sending socket notification to gate');
+        gateSocket.emit('visitorStatusUpdated', {
+          visitorId: visitor._id.toString(),
+          status: 'Approved',
+        });
+        console.log('Socket notification sent');
+      } else {
+        console.log('Gate socket not found');
+      }
+    } else {
+      console.log('No gate ID found for visitor');
     }
 
+    console.log('Approval process completed successfully');
     res.status(200).json({ message: 'Visitor approved' });
   } catch (err) {
+    console.error('Error in approve:', err);
     res.status(500).json({ message: 'Error approving visitor', error: err.message });
   }
 };
@@ -224,41 +250,67 @@ const approve = async (req, res) => {
 const decline = async (req, res) => {
   const hostId = req.user.id;
   const { visitorId } = req.body;
+  console.log('Decline request received:', { hostId, visitorId });
 
   if (!visitorId) {
+    console.log('Missing visitorId in request');
     return res.status(400).json({ message: 'visitorId is required' });
   }
 
   try {
+    console.log('Finding host:', hostId);
     const host = await Host.findById(hostId);
-    const visitor = await Visitor.findById(visitorId);
-
-    if (!host || !visitor) {
-      return res.status(404).json({ message: 'Host or Visitor not found' });
+    if (!host) {
+      console.log('Host not found:', hostId);
+      return res.status(404).json({ message: 'Host not found' });
     }
+    console.log('Host found:', host);
+
+    console.log('Finding visitor:', visitorId);
+    const visitor = await Visitor.findById(visitorId);
+    if (!visitor) {
+      console.log('Visitor not found:', visitorId);
+      return res.status(404).json({ message: 'Visitor not found' });
+    }
+    console.log('Visitor found:', visitor);
 
     // Update visitor status
+    console.log('Updating visitor status to Declined');
     visitor.status = 'Declined';
     await visitor.save();
+    console.log('Visitor status updated');
 
     // Remove visitor from visitRequestQueue
+    console.log('Removing visitor from host queue');
     host.visitRequestQueue = host.visitRequestQueue.filter(
       (id) => id.toString() !== visitorId
     );
     await host.save();
+    console.log('Host queue updated');
 
     // 🔔 Notify gate
     const gateId = visitor.gate?.toString?.();
-    const gateSocket = req.gateSockets.get(gateId);
-    if (gateSocket) {
-      gateSocket.emit('visitorStatusUpdated', {
-        visitorId: visitor._id.toString(),
-        status: 'Declined',
-      });
+    if (gateId) {
+      console.log('Finding gate socket:', gateId);
+      const gateSocket = req.gateSockets.get(gateId);
+      if (gateSocket) {
+        console.log('Sending socket notification to gate');
+        gateSocket.emit('visitorStatusUpdated', {
+          visitorId: visitor._id.toString(),
+          status: 'Declined',
+        });
+        console.log('Socket notification sent');
+      } else {
+        console.log('Gate socket not found');
+      }
+    } else {
+      console.log('No gate ID found for visitor');
     }
 
+    console.log('Decline process completed successfully');
     res.status(200).json({ message: 'Visitor declined' });
   } catch (err) {
+    console.error('Error in decline:', err);
     res.status(500).json({ message: 'Error declining visitor', error: err.message });
   }
 };

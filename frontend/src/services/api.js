@@ -43,6 +43,7 @@ export const hostAPI = {
   addVisitor: (visitorData) => api.post('/host/visitor/add', visitorData),
   getVisitors: () => api.get('/host/visitors'),
   getPendingRequests: () => api.get('/host/pendingReq'),
+  getPreApprovedVisitors: () => api.get('/host/preApproved'),
   approveVisitor: (visitorId) => api.put('/host/approve', { visitorId }),
   declineVisitor: (visitorId) => api.put('/host/decline', { visitorId }),
   generateQR: (visitorId) => api.post('/host/generate-qr', { visitorId }),
@@ -64,7 +65,7 @@ export const gateAPI = {
     const response = await api.post('/gate/addVisitor', visitorData);
     return response;
   },
-  requestApproval: (visitorId) => api.post('/gate/requestApproval', { visitorId }),
+  requestApproval: (visitorId, gateId) => api.post('/gate/requestApproval', { visitorId, gateId }),
   generateQR: (visitorId) => api.post('/gate/generateQR', { visitorId }),
   getTodaysVisitors: () => api.get('/gate/todaysVisitors'),
   checkIn: async (visitorId) => {

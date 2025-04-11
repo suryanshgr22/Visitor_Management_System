@@ -215,12 +215,40 @@ export default function GateDashboard({ user, onLogout }) {
       const response = await gateAPI.addVisitor(visitorData);
       
       if (response && response.data) {
+        console.log('Visitor added successfully:', response.data);
+        console.log('Response data structure:', JSON.stringify(response.data, null, 2));
+        
         // Automatically request approval for the newly added visitor
         try {
-          await gateAPI.requestApproval(response.data._id);
-          console.log('Approval requested for visitor:', response.data._id);
+          // Check if the visitor ID exists in the response
+          const visitorId = response.data.visitor?._id || response.data.visitor?.id || response.data._id || response.data.id;
+          if (!visitorId) {
+            console.error('No visitor ID found in response:', response.data);
+            throw new Error('No visitor ID found in response');
+          }
+          
+          console.log('Requesting approval for visitor ID:', visitorId);
+          const approvalResponse = await gateAPI.requestApproval(visitorId, user.data.id);
+          console.log('Approval request response:', approvalResponse.data);
+          
+          // Add socket event listener for approval status updates
+          if (socket) {
+            console.log('Setting up socket listener for visitor status updates');
+            socket.on('visitorStatusUpdated', (data) => {
+              console.log('Received visitor status update:', data);
+              if (data.visitorId === response.data._id) {
+                console.log('Status updated for current visitor:', data.status);
+                fetchVisitors(); // Refresh the visitors list
+              }
+            });
+          }
         } catch (approvalError) {
           console.error('Error requesting approval:', approvalError);
+          console.error('Approval error details:', {
+            message: approvalError.message,
+            response: approvalError.response?.data,
+            status: approvalError.response?.status
+          });
           // Don't block the success flow if approval request fails
         }
         
@@ -228,6 +256,7 @@ export default function GateDashboard({ user, onLogout }) {
         resetForm();
         fetchVisitors();
       } else {
+        console.error('Failed to add visitor: No response data');
         setError('Failed to add visitor. Please try again.');
       }
     } catch (error) {
@@ -242,12 +271,19 @@ export default function GateDashboard({ user, onLogout }) {
     try {
       setLoading(true);
       // Use the existing requestApproval endpoint
-      const response = await gateAPI.requestApproval(visitorId);
+      console.log('Requesting approval for visitor ID:', visitorId);
+      const response = await gateAPI.requestApproval(visitorId, user.data.id);
       if (response && response.data) {
+        console.log('Approval request successful:', response.data);
         fetchVisitors();
       }
     } catch (error) {
       console.error('Error approving visitor:', error);
+      console.error('Approval error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       setError(error.response?.data?.message || 'Failed to approve visitor');
     } finally {
       setLoading(false);
