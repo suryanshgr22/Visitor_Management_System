@@ -193,15 +193,25 @@ const approve = async (req, res) => {
       return res.status(404).json({ message: 'Host or Visitor not found' });
     }
 
-    // Update status
+    // Update visitor status
     visitor.status = 'Approved';
     await visitor.save();
 
-    // Remove from queue
+    // Remove visitor from queue
     host.visitRequestQueue = host.visitRequestQueue.filter(
       (id) => id.toString() !== visitorId
     );
     await host.save();
+
+    // 🔔 Real-time notify gate (if needed)
+    const gateId = visitor.gate?.toString?.(); // assuming you stored gateId in visitor
+    const gateSocket = req.gateSockets.get(gateId);
+    if (gateSocket) {
+      gateSocket.emit('visitorStatusUpdated', {
+        visitorId: visitor._id.toString(),
+        status: 'Approved',
+      });
+    }
 
     res.status(200).json({ message: 'Visitor approved' });
   } catch (err) {
@@ -236,6 +246,16 @@ const decline = async (req, res) => {
       (id) => id.toString() !== visitorId
     );
     await host.save();
+
+    // 🔔 Notify gate
+    const gateId = visitor.gate?.toString?.();
+    const gateSocket = req.gateSockets.get(gateId);
+    if (gateSocket) {
+      gateSocket.emit('visitorStatusUpdated', {
+        visitorId: visitor._id.toString(),
+        status: 'Declined',
+      });
+    }
 
     res.status(200).json({ message: 'Visitor declined' });
   } catch (err) {

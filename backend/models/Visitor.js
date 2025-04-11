@@ -57,10 +57,10 @@ const visitorSchema = new mongoose.Schema({
           type: Date,
         }
     },
-    gateId:{
+    gate: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Gate' 
-    }
+        ref: 'Gate',
+      }
 
 
 },{

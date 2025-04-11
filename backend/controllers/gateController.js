@@ -163,7 +163,7 @@ const checkOut = async (req, res) => {
 
 
 const reqApproval = async (req, res) => {
-  const { visitorId } = req.body;
+  const { visitorId, gateId } = req.body; // gateId optional if you want to track it
 
   if (!visitorId) {
     return res.status(400).json({ message: 'visitorId is required' });
@@ -186,12 +186,18 @@ const reqApproval = async (req, res) => {
       await host.save();
     }
 
-    // Update visitor status if needed
+    // Update visitor status
     visitor.status = 'Waiting';
     await visitor.save();
 
-    // OPTIONAL: Emit real-time notification via Socket.IO if you implement that
-    // io.to(host._id.toString()).emit("new-visit-request", { visitor });
+    // 🔔 Real-time notify host via socket
+    const hostSocket = req.hostSockets.get(host._id.toString());
+    if (hostSocket) {
+      hostSocket.emit('newApprovalRequest', {
+        message: 'New visitor approval request',
+        visitorId: visitor._id.toString(), // optional data
+      });
+    }
 
     res.status(200).json({ message: 'Approval request sent to host' });
   } catch (err) {
