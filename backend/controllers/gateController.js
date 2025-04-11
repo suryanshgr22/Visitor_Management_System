@@ -132,7 +132,14 @@ const checkIn = async (req, res) => {
     visitor.status = 'Checked-in';
     await visitor.save();
 
-    res.status(200).json({ message: 'Visitor checked-in', checkIn: visitor.checkIn });
+    res.status(200).json({ message: 'Visitor checked-in',  info: {
+      fullname: visitor.fullname,
+      photo: visitor.photo,
+      email: visitor.email,
+      contact: visitor.contact,
+      purpose: visitor.purpose,
+      organisation: visitor.organisation
+    } });
   } catch (err) {
     res.status(500).json({ message: 'Error during check-in', error: err.message });
   }
@@ -158,7 +165,16 @@ const checkOut = async (req, res) => {
     visitor.status = 'Checked-out';
     await visitor.save();
 
-    res.status(200).json({ message: 'Visitor checked-out', checkOut: visitor.checkOut });
+    res.status(200).json({ message: 'Visitor checked-out', 
+      info: {
+        fullname: visitor.fullname,
+        photo: visitor.photo,
+        email: visitor.email,
+        contact: visitor.contact,
+        purpose: visitor.purpose,
+        organisation: visitor.organisation
+      }
+     });
   } catch (err) {
     res.status(500).json({ message: 'Error during check-out', error: err.message });
   }
