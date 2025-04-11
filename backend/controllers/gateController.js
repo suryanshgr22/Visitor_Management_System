@@ -51,11 +51,12 @@ const addVisitor = async (req, res) => {
       organisation,
       employeeId,
       hostEmployee,
-      photo
+      photo,
+      gateId
     } = req.body;
 
     // Check required fields
-    if (!fullname || !purpose || !hostEmployee || !photo) {
+    if (!fullname || !purpose || !hostEmployee || !photo || !gateId) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
@@ -65,6 +66,7 @@ const addVisitor = async (req, res) => {
 
     // Verify host exists
     const host = await Host.findById(hostEmployee);
+    const gate = await Host.findById(gateId);
     if (!host) {
       return res.status(404).json({ message: 'Host not found' });
     }
@@ -77,7 +79,8 @@ const addVisitor = async (req, res) => {
       organisation,
       employeeId,
       hostEmployee,
-      photo
+      photo,
+      gate
     });
 
     await newVisitor.save();
@@ -251,11 +254,44 @@ const generateQR = async (req, res) => {
   }
 };
 
+const getTodaysVisitors = async (req, res) => {
+  try {
+    // Get today's date range (00:00 to 23:59)
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const visitors = await Visitor.find({
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    })
+      .populate('hostEmployee', 'fullname email') // optional: to include host details
+      .sort({ createdAt: -1 }); // newest first
+
+    res.status(200).json(visitors);
+  } catch (error) {
+    console.error('Error fetching today’s visitors:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+const hosts = async (req, res) => {
+  try {
+    const allHosts = await Host.find().select('-password');
+    res.status(200).json({ hosts: allHosts });
+  } catch (err) {
+    console.error('Fetch Hosts Error:', err.message);
+    res.status(500).json({ message: 'Server error while fetching hosts' });
+  }
+};
+
 module.exports = {
   loginGate,
   addVisitor,
   checkIn,
   checkOut,
   reqApproval,
-  generateQR
+  generateQR,
+  getTodaysVisitors,
+  hosts
 }

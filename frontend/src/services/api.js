@@ -1,24 +1,41 @@
 import axios from 'axios';
+import config from '../utils/config';
 
-const API_URL = 'http://localhost:5000/api';
-
-// Create axios instance
+// Create axios instance with base URL
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: `${config.api.baseUrl}/api`,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
-// Add token to requests if it exists
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  console.log('Interceptor - Token:', token);
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-    console.log('Interceptor - Added token to headers:', config.headers.Authorization);
-  } else {
-    console.log('Interceptor - No token found in localStorage');
+// Add a request interceptor to add the auth token to all requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return config;
-});
+);
+
+// Add a response interceptor to handle token expiration
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // Token expired or invalid, clear localStorage and redirect to login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Host API
 export const hostAPI = {
@@ -33,9 +50,31 @@ export const hostAPI = {
 
 // Gate API
 export const gateAPI = {
-  login: (gateId, password) => api.post('/gate/login', { loginId: gateId, password }),
-  checkIn: (visitorId) => api.put('/gate/checkin', { visitorId }),
-  checkOut: (visitorId) => api.put('/gate/checkout', { visitorId }),
+  login: async (loginId, password) => {
+    const response = await api.post('/gate/login', { loginId, password });
+    return response;
+  },
+  getVisitors: async () => {
+    const response = await api.get('/gate/todaysVisitors');
+    return response;
+  },
+  getPendingVisitors: () => api.get('/gate/pendingVisitors'),
+  getHosts: () => api.get('/gate/hosts'),
+  addVisitor: async (visitorData) => {
+    const response = await api.post('/gate/addVisitor', visitorData);
+    return response;
+  },
+  requestApproval: (visitorId) => api.post('/gate/requestApproval', { visitorId }),
+  generateQR: (visitorId) => api.post('/gate/generateQR', { visitorId }),
+  getTodaysVisitors: () => api.get('/gate/todaysVisitors'),
+  checkIn: async (visitorId) => {
+    const response = await api.put('/gate/checkin', { visitorId });
+    return response;
+  },
+  checkOut: async (visitorId) => {
+    const response = await api.put('/gate/checkout', { visitorId });
+    return response;
+  }
 };
 
 // Admin API

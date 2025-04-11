@@ -1,76 +1,275 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { gateAPI } from '../services/api';
-import { BellIcon } from '@heroicons/react/24/outline';
+import { BellIcon, CameraIcon, QrCodeIcon, PrinterIcon } from '@heroicons/react/24/outline';
+import { usePDF } from 'react-to-pdf';
+import Webcam from 'react-webcam';
+import config from '../utils/config';
+import VisitorBadge from '../components/VisitorBadge';
+import VisitorCheckInOut from '../components/VisitorCheckInOut';
 
-export default function GateDashboard({ user, onLogout, socket }) {
+export default function GateDashboard({ user, onLogout }) {
   const [visitors, setVisitors] = useState([]);
-  const [pendingVisitors, setPendingVisitors] = useState([]);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [selectedVisitor, setSelectedVisitor] = useState(null);
+  const [showAddVisitor, setShowAddVisitor] = useState(false);
+  const [hosts, setHosts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showCamera, setShowCamera] = useState(false);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [showCheckInOut, setShowCheckInOut] = useState(false);
+  const webcamRef = useRef(null);
+  const { toPDF, targetRef } = usePDF({ filename: 'visitor-badge.pdf' });
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [showBadge, setShowBadge] = useState(false);
+  const [badgeData, setBadgeData] = useState(null);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    fullname: '',
+    purpose: '',
+    email: '',
+    contact: '',
+    organisation: '',
+    employeeId: '',
+    hostEmployee: '',
+    photo: null,
+    gateId: ''
+  });
 
   useEffect(() => {
     fetchVisitors();
-    fetchPendingVisitors();
+    fetchHosts();
+  }, []);
 
-    if (socket) {
-      socket.on('new-visitor', (visitor) => {
-        setPendingVisitors((prev) => [...prev, visitor]);
-        setShowNotifications(true);
-      });
+  const fetchHosts = async () => {
+    try {
+      const response = await gateAPI.getHosts();
+      setHosts(response.data.hosts || []);
+    } catch (error) {
+      console.error('Error fetching hosts:', error);
+      setError('Failed to fetch hosts');
     }
-
-    return () => {
-      if (socket) {
-        socket.off('new-visitor');
-      }
-    };
-  }, [socket]);
+  };
 
   const fetchVisitors = async () => {
     try {
       const response = await gateAPI.getVisitors();
-      setVisitors(response.data);
+      setVisitors(response.data || []);
     } catch (error) {
       console.error('Error fetching visitors:', error);
+      setVisitors([]);
     }
   };
 
-  const fetchPendingVisitors = async () => {
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const capturePhoto = () => {
+    const imageSrc = webcamRef.current.getScreenshot({
+      width: 1280,
+      height: 720,
+      quality: 1
+    });
+    setCapturedImage(imageSrc);
+    setShowCamera(false);
+    setFormData(prev => ({
+      ...prev,
+      photo: imageSrc
+    }));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      fullname: '',
+      purpose: '',
+      email: '',
+      contact: '',
+      organisation: '',
+      employeeId: '',
+      hostEmployee: '',
+      photo: null,
+      gateId: ''
+    });
+    setCapturedImage(null);
+    setShowCamera(false);
+    setError('');
+  };
+
+  const validateForm = () => {
+    // Check required fields
+    if (!formData.fullname) {
+      setError('Full name is required');
+      return false;
+    }
+    if (!formData.purpose) {
+      setError('Purpose is required');
+      return false;
+    }
+    if (!formData.hostEmployee) {
+      setError('Host is required');
+      return false;
+    }
+    if (!capturedImage) {
+      setError('Photo is required');
+      return false;
+    }
+    
+    // Check either email or contact
+    if (!formData.email && !formData.contact) {
+      setError('Either email or contact is required');
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+    
+    setLoading(true);
+    setError('');
+
     try {
-      const response = await gateAPI.getPendingVisitors();
-      setPendingVisitors(response.data);
+      // First, upload the photo to Cloudinary if captured
+      let photoUrl = null;
+      if (capturedImage) {
+        try {
+          setUploadingPhoto(true);
+          console.log('Starting photo upload to Cloudinary...');
+          
+          // Create form data
+          const formData = new FormData();
+          
+          // Convert base64 to blob
+          const base64Data = capturedImage.split(',')[1]; // Remove the data URL prefix
+          const byteCharacters = atob(base64Data);
+          const byteArrays = [];
+          
+          for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+            const slice = byteCharacters.slice(offset, offset + 512);
+            const byteNumbers = new Array(slice.length);
+            
+            for (let i = 0; i < slice.length; i++) {
+              byteNumbers[i] = slice.charCodeAt(i);
+            }
+            
+            const byteArray = new Uint8Array(byteNumbers);
+            byteArrays.push(byteArray);
+          }
+          
+          const blob = new Blob(byteArrays, { type: 'image/jpeg' });
+          
+          // Append the blob to form data
+          formData.append('file', blob, 'visitor-photo.jpg');
+          formData.append('upload_preset', config.cloudinary.uploadPreset);
+          
+          console.log('Uploading to Cloudinary with preset:', config.cloudinary.uploadPreset);
+          
+          const uploadResponse = await fetch(
+            `https://api.cloudinary.com/v1_1/${config.cloudinary.cloudName}/image/upload`,
+            {
+              method: 'POST',
+              body: formData
+            }
+          );
+          
+          if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json();
+            console.error('Cloudinary upload failed:', errorData);
+            throw new Error(errorData.error?.message || 'Failed to upload photo');
+          }
+          
+          const data = await uploadResponse.json();
+          console.log('Cloudinary upload successful:', data);
+          photoUrl = data.secure_url;
+        } catch (error) {
+          console.error('Error uploading photo:', error);
+          setError(`Failed to upload photo: ${error.message}`);
+          setLoading(false);
+          setUploadingPhoto(false);
+          return;
+        } finally {
+          setUploadingPhoto(false);
+        }
+      }
+
+      // Then submit the visitor data
+      const visitorData = {
+        fullname: formData.fullname,
+        purpose: formData.purpose,
+        email: formData.email || '',
+        contact: formData.contact || '',
+        organisation: formData.organisation || '',
+        employeeId: formData.employeeId || '',
+        hostEmployee: formData.hostEmployee,
+        photo: photoUrl,
+        gateId: user.data.id // Set the gate ID from the logged-in user
+      };
+
+      console.log('Submitting visitor data:', visitorData);
+      const response = await gateAPI.addVisitor(visitorData);
+      
+      if (response && response.data) {
+        // Automatically request approval for the newly added visitor
+        try {
+          await gateAPI.requestApproval(response.data._id);
+          console.log('Approval requested for visitor:', response.data._id);
+        } catch (approvalError) {
+          console.error('Error requesting approval:', approvalError);
+          // Don't block the success flow if approval request fails
+        }
+        
+        setShowAddVisitor(false);
+        resetForm();
+        fetchVisitors();
+      } else {
+        setError('Failed to add visitor. Please try again.');
+      }
     } catch (error) {
-      console.error('Error fetching pending visitors:', error);
+      console.error('Error adding visitor:', error);
+      setError(error.response?.data?.message || 'Failed to add visitor. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCheckIn = async (visitorId) => {
+  const handleApprove = async (visitorId) => {
     try {
-      await gateAPI.checkInVisitor(visitorId);
-      setPendingVisitors((prev) =>
-        prev.filter((visitor) => visitor._id !== visitorId)
-      );
-      fetchVisitors();
+      setLoading(true);
+      // Use the existing requestApproval endpoint
+      const response = await gateAPI.requestApproval(visitorId);
+      if (response && response.data) {
+        fetchVisitors();
+      }
     } catch (error) {
-      console.error('Error checking in visitor:', error);
+      console.error('Error approving visitor:', error);
+      setError(error.response?.data?.message || 'Failed to approve visitor');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCheckOut = async (visitorId) => {
+  const generateBadge = async (visitor) => {
     try {
-      await gateAPI.checkOutVisitor(visitorId);
-      setVisitors((prev) =>
-        prev.filter((visitor) => visitor._id !== visitorId)
-      );
+      setLoading(true);
+      // Use the existing generateQR endpoint
+      const response = await gateAPI.generateQR(visitor._id);
+      if (response && response.data) {
+        // The backend already provides the badge data with the correct host name
+        setBadgeData(response.data.badgeData);
+        setShowBadge(true);
+      }
     } catch (error) {
-      console.error('Error checking out visitor:', error);
+      console.error('Error generating badge:', error);
+      setError(error.response?.data?.message || 'Failed to generate badge');
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const handleViewBadge = (visitor) => {
-    setSelectedVisitor(visitor);
-    setShowBadge(true);
   };
 
   return (
@@ -81,19 +280,22 @@ export default function GateDashboard({ user, onLogout, socket }) {
             <div className="flex items-center">
               <h1 className="text-xl font-semibold">Gate Dashboard</h1>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center space-x-4">
               <button
-                className="relative p-2 rounded-full hover:bg-gray-100"
-                onClick={() => setShowNotifications(!showNotifications)}
+                onClick={() => setShowAddVisitor(true)}
+                className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
               >
-                <BellIcon className="h-6 w-6" />
-                {pendingVisitors.length > 0 && (
-                  <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-400" />
-                )}
+                Add Visitor
+              </button>
+              <button
+                onClick={() => setShowCheckInOut(true)}
+                className="px-4 py-2 text-sm text-white bg-green-600 rounded-md hover:bg-green-700"
+              >
+                Check In/Out
               </button>
               <button
                 onClick={onLogout}
-                className="ml-4 px-4 py-2 text-sm text-red-600 hover:text-red-800"
+                className="px-4 py-2 text-sm text-red-600 hover:text-red-800"
               >
                 Logout
               </button>
@@ -103,35 +305,8 @@ export default function GateDashboard({ user, onLogout, socket }) {
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {showNotifications && pendingVisitors.length > 0 && (
-          <div className="mb-6 bg-white shadow rounded-lg p-4">
-            <h2 className="text-lg font-medium mb-4">Pending Check-ins</h2>
-            <div className="space-y-4">
-              {pendingVisitors.map((visitor) => (
-                <div
-                  key={visitor._id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium">{visitor.fullname}</p>
-                    <p className="text-sm text-gray-500">{visitor.purpose}</p>
-                  </div>
-                  <div className="space-x-2">
-                    <button
-                      onClick={() => handleCheckIn(visitor._id)}
-                      className="px-3 py-1 text-sm text-white bg-green-600 rounded hover:bg-green-700"
-                    >
-                      Check In
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div className="bg-white shadow rounded-lg p-4">
-          <h2 className="text-lg font-medium mb-4">Checked In Visitors</h2>
+          <h2 className="text-lg font-medium mb-4">Today's Visitors</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visitors.map((visitor) => (
               <div
@@ -153,22 +328,23 @@ export default function GateDashboard({ user, onLogout, socket }) {
                 </div>
                 <div className="mt-2">
                   <p className="text-sm text-gray-500">
-                    Checked in: {new Date(visitor.checkInTime).toLocaleString()}
+                    Status: <span className={`font-medium ${
+                      visitor.status === 'Approved' ? 'text-green-600' :
+                      visitor.status === 'Waiting' ? 'text-yellow-600' :
+                      'text-gray-600'
+                    }`}>{visitor.status}</span>
                   </p>
-                </div>
-                <div className="mt-4 flex space-x-2">
-                  <button
-                    onClick={() => handleViewBadge(visitor)}
-                    className="flex-1 px-3 py-1 text-sm text-indigo-600 border border-indigo-600 rounded hover:bg-indigo-50"
-                  >
-                    View Badge
-                  </button>
-                  <button
-                    onClick={() => handleCheckOut(visitor._id)}
-                    className="flex-1 px-3 py-1 text-sm text-red-600 border border-red-600 rounded hover:bg-red-50"
-                  >
-                    Check Out
-                  </button>
+                  <div className="mt-2 flex space-x-2">
+                    {visitor.status === 'Approved' && (
+                      <button
+                        onClick={() => generateBadge(visitor)}
+                        disabled={loading}
+                        className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        Generate Badge
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -176,64 +352,216 @@ export default function GateDashboard({ user, onLogout, socket }) {
         </div>
       </main>
 
-      {showBadge && selectedVisitor && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg font-medium">Visitor Badge</h3>
+      {/* Add Visitor Modal */}
+      {showAddVisitor && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-2">
+          <div className="bg-white rounded-lg p-4 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="text-lg font-medium">Add New Visitor</h3>
               <button
-                onClick={() => setShowBadge(false)}
+                onClick={() => {
+                  setShowAddVisitor(false);
+                  resetForm();
+                }}
                 className="text-gray-400 hover:text-gray-500"
               >
                 ×
               </button>
             </div>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-4">
-                {selectedVisitor.photo && (
-                  <img
-                    src={selectedVisitor.photo}
-                    alt={selectedVisitor.fullname}
-                    className="h-16 w-16 rounded-full"
-                  />
-                )}
+            <form onSubmit={handleSubmit} className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <p className="font-medium">{selectedVisitor.fullname}</p>
-                  <p className="text-sm text-gray-500">{selectedVisitor.purpose}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Host</p>
-                  <p className="mt-1">{selectedVisitor.hostEmployee?.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Check In</p>
-                  <p className="mt-1">
-                    {new Date(selectedVisitor.checkInTime).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              {selectedVisitor.qrCode && (
-                <div className="flex justify-center">
-                  <img
-                    src={selectedVisitor.qrCode}
-                    alt="QR Code"
-                    className="h-32 w-32"
+                  <label className="block text-sm font-medium text-gray-700">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="fullname"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    value={formData.fullname}
+                    onChange={handleInputChange}
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Purpose *
+                  </label>
+                  <input
+                    type="text"
+                    name="purpose"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    value={formData.purpose}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Contact
+                  </label>
+                  <input
+                    type="tel"
+                    name="contact"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    value={formData.contact}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Organization
+                  </label>
+                  <input
+                    type="text"
+                    name="organisation"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    value={formData.organisation}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Employee ID
+                  </label>
+                  <input
+                    type="text"
+                    name="employeeId"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    value={formData.employeeId}
+                    onChange={handleInputChange}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Host *
+                </label>
+                <select
+                  name="hostEmployee"
+                  required
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  value={formData.hostEmployee}
+                  onChange={handleInputChange}
+                >
+                  <option value="">Select a host</option>
+                  {hosts.map((host) => (
+                    <option key={host._id} value={host._id}>
+                      {host.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Photo
+                </label>
+                <div className="mt-1 flex items-center space-x-2">
+                  {showCamera ? (
+                    <div className="relative">
+                      <Webcam
+                        ref={webcamRef}
+                        screenshotFormat="image/jpeg"
+                        className="rounded-lg h-48 w-48 object-cover"
+                        videoConstraints={{
+                          width: 1280,
+                          height: 720,
+                          facingMode: "user",
+                          aspectRatio: 1
+                        }}
+                        screenshotQuality={1}
+                      />
+                      <button
+                        type="button"
+                        onClick={capturePhoto}
+                        className="absolute bottom-2 right-2 p-2 bg-white rounded-full shadow-lg"
+                      >
+                        <CameraIcon className="h-5 w-5 text-gray-600" />
+                      </button>
+                    </div>
+                  ) : capturedImage ? (
+                    <div className="relative">
+                      <img
+                        src={capturedImage}
+                        alt="Captured"
+                        className="rounded-lg h-48 w-48 object-cover"
+                        style={{ imageRendering: 'high-quality' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCamera(true)}
+                        className="absolute bottom-2 right-2 p-2 bg-white rounded-full shadow-lg"
+                      >
+                        <CameraIcon className="h-5 w-5 text-gray-600" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowCamera(true)}
+                      className="h-48 w-48 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center"
+                    >
+                      <CameraIcon className="h-8 w-8 text-gray-400" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {error && (
+                <div className="text-red-500 text-sm text-center">{error}</div>
               )}
-            </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => window.print()}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
-              >
-                Print Badge
-              </button>
-            </div>
+              <div className="flex justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddVisitor(false);
+                    resetForm();
+                  }}
+                  className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || uploadingPhoto}
+                  className="px-3 py-1 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Adding...' : uploadingPhoto ? 'Uploading Photo...' : 'Add Visitor'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
+      )}
+
+      {/* Replace the QR Scanner Modal with the VisitorCheckInOut component */}
+      {showCheckInOut && (
+        <VisitorCheckInOut
+          onSuccess={() => {
+            setShowCheckInOut(false);
+            fetchVisitors();
+          }}
+          onClose={() => setShowCheckInOut(false)}
+        />
+      )}
+
+      {/* Badge Modal */}
+      {showBadge && badgeData && (
+        <VisitorBadge 
+          badgeData={badgeData} 
+          onClose={() => setShowBadge(false)} 
+        />
       )}
     </div>
   );

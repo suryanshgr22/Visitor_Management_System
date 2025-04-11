@@ -8,7 +8,9 @@ const {
   reqApproval,
   generateQR,
   checkIn,
-  checkOut
+  checkOut,
+  getTodaysVisitors,
+  hosts
 } = require('../controllers/gateController');
 
 const authenticate = require('../middlewares/authenticate');
@@ -28,6 +30,6 @@ router.post('/requestApproval', reqApproval);
 router.post('/generateQR', generateQR);
 router.put('/checkin', checkIn);
 router.put('/checkout', checkOut);
-
-
+router.get('/todaysVisitors', getTodaysVisitors);
+router.get('/hosts', hosts);
 module.exports = router;
