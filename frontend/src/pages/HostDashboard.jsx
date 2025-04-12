@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { hostAPI } from '../services/api';
 import { BellIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { usePDF } from 'react-to-pdf';
+import VisitorBadge from '../components/VisitorBadge';
 
 export default function HostDashboard({ user, onLogout, socket }) {
   const [visitors, setVisitors] = useState([]);
@@ -516,71 +517,17 @@ export default function HostDashboard({ user, onLogout, socket }) {
 
       {/* Badge Modal */}
       {showBadge && selectedVisitor && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-lg font-medium">Visitor Badge</h3>
-              <button
-                onClick={() => setShowBadge(false)}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <XMarkIcon className="h-6 w-6" />
-              </button>
-            </div>
-            {/* Print-friendly version */}
-            <div className="bg-white p-6 rounded-lg" ref={targetRef}>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  {selectedVisitor.photo && (
-                    <img
-                      src={selectedVisitor.photo}
-                      alt={selectedVisitor.fullname}
-                      className="h-16 w-16 rounded-full"
-                    />
-                  )}
-                  <div>
-                    <p className="font-medium">{selectedVisitor.fullname}</p>
-                    <p className="text-sm text-gray-500">{selectedVisitor.purpose}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Host</p>
-                    <p className="mt-1">{user.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Time</p>
-                    <p className="mt-1">{selectedVisitor.badgeData?.time || new Date().toLocaleString()}</p>
-                  </div>
-                </div>
-                {selectedVisitor.badgeData?.qrCode && (
-                  <div className="flex justify-center">
-                    <img
-                      src={selectedVisitor.badgeData.qrCode}
-                      alt="QR Code"
-                      className="h-32 w-32"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-            {/* Action buttons outside the print area */}
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                onClick={() => window.print()}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
-              >
-                Print
-              </button>
-              <button
-                onClick={() => toPDF()}
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
-              >
-                Save PDF
-              </button>
-            </div>
-          </div>
-        </div>
+        <VisitorBadge 
+          badgeData={{
+            fullname: selectedVisitor.fullname,
+            host: user.name,
+            purpose: selectedVisitor.purpose,
+            time: selectedVisitor.badgeData?.time || new Date().toLocaleString(),
+            qrCode: selectedVisitor.badgeData?.qrCode,
+            photo: selectedVisitor.photo || null
+          }} 
+          onClose={() => setShowBadge(false)}
+        />
       )}
     </div>
   );

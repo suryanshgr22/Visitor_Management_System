@@ -15,30 +15,33 @@ export default function VisitorBadge({ badgeData, onClose }) {
             body {
               font-family: Arial, sans-serif;
               margin: 0;
-              padding: 20px;
+              padding: 0;
               display: flex;
               flex-direction: column;
               align-items: center;
+              justify-content: center;
+              height: 100vh;
             }
             .badge {
-              width: 400px;
+              width: 350px;
               border: 2px solid #333;
               border-radius: 10px;
-              padding: 20px;
+              padding: 15px;
               text-align: center;
               background-color: #f9f9f9;
+              box-sizing: border-box;
             }
             .header {
-              font-size: 24px;
+              font-size: 22px;
               font-weight: bold;
               margin-bottom: 20px;
               color: #333;
             }
             .photo {
-              width: 150px;
-              height: 150px;
+              width: 120px;
+              height: 120px;
               border-radius: 50%;
-              margin: 0 auto 20px;
+              margin: 0 auto 15px;
               object-fit: cover;
               border: 3px solid #333;
             }
@@ -47,18 +50,19 @@ export default function VisitorBadge({ badgeData, onClose }) {
               text-align: left;
             }
             .detail-row {
-              margin-bottom: 10px;
+              margin-bottom: 8px;
+              font-size: 14px;
             }
             .label {
               font-weight: bold;
               color: #555;
             }
             .qr-code {
-              margin-top: 20px;
+              margin-top: 15px;
             }
             .qr-code img {
-              width: 150px;
-              height: 150px;
+              width: 130px;
+              height: 130px;
             }
             .print-button {
               margin-top: 20px;
@@ -74,15 +78,23 @@ export default function VisitorBadge({ badgeData, onClose }) {
               background-color: #4338ca;
             }
             @media print {
-              .print-button {
-                display: none;
-              }
               body {
                 padding: 0;
+                margin: 0;
+                height: auto;
               }
               .badge {
+                width: 100%;
+                max-width: 350px;
+                height: auto;
                 border: none;
                 box-shadow: none;
+                page-break-inside: avoid;
+                page-break-after: avoid;
+                margin: 0 auto;
+              }
+              .print-button {
+                display: none;
               }
             }
           </style>
@@ -90,7 +102,7 @@ export default function VisitorBadge({ badgeData, onClose }) {
         <body>
           <div class="badge">
             <div class="header">VISITOR BADGE</div>
-            <img src="${badgeData.photo}" alt="${badgeData.fullname}" class="photo">
+            ${badgeData.photo ? `<img src="${badgeData.photo}" alt="${badgeData.fullname}" class="photo">` : ''}
             <div class="details">
               <div class="detail-row">
                 <span class="label">Name:</span> ${badgeData.fullname}

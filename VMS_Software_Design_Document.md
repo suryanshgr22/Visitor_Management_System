@@ -30,22 +30,8 @@ Traditional visitor management systems often involve paper logbooks, manual badg
 The VMS follows a modern client-server architecture with a React frontend and Node.js backend. It employs a RESTful API pattern for communication between client and server, with socket-based real-time notifications. The system is database-driven and uses Cloudinary for media storage.
 
 ### Architecture Diagram
-```
-┌─────────────┐     ┌───────────────────────────────────┐     ┌────────────────┐
-│             │     │           Application Server       │     │                │
-│  Frontend   │◄───►│                                   │◄───►│   MongoDB      │
-│  (React.js) │     │  Node.js + Express + Socket.IO    │     │   Database     │
-│             │     │                                   │     │                │
-└─────────────┘     └───────────────────────────────────┘     └────────────────┘
-                                    │
-                                    ▼
-                          ┌─────────────────┐
-                          │                 │
-                          │   Cloudinary    │
-                          │  (Media Store)  │
-                          │                 │
-                          └─────────────────┘
-```
+
+![Figure 1: VMS System Architecture showing the interactions between Frontend (React.js), Backend Server (Node.js, Express, Socket.io), Database (MongoDB), and Cloudinary (Media Storage)](./architecture-diagram.png)
 
 ### Technology Stack
 - **Frontend**: React.js with Hooks, Tailwind CSS, Socket.IO client, React Router, Axios
@@ -60,172 +46,229 @@ The VMS follows a modern client-server architecture with a React frontend and No
 ### Database Schema
 The system uses MongoDB with the following core collections:
 
-1. **Users**
-   - _id: ObjectId
-   - name: String
-   - email: String
-   - role: String (admin, host, gate)
-   - password: String (hashed)
-   - department: String
-   - createdAt: Date
+1. **Visitors**
+   - Basic information: fullname, email, contact, purpose, organisation, employeeId, photo
+   - References: hostEmployee (Host), gate (Gate)
+   - Status tracking: status (Approved, Declined, Waiting, Checked-in, Checked-out)
+   - Timing information: checkIn, checkOut, expectedCheckInFrom, expectedCheckInTo
+   - Badge information: badge.qrCode, badge.issuedAt
+   - Flags: preApproved
+   - Metadata: timestamps (createdAt, updatedAt)
 
-2. **Visitors**
-   - _id: ObjectId
-   - fullname: String
-   - email: String
-   - contact: String
-   - purpose: String
-   - organisation: String
-   - photo: String (URL)
-   - hostEmployee: ObjectId (ref: Users)
-   - status: String (Waiting, Approved, Declined, Checked-in, Checked-out)
-   - preApproved: Boolean
-   - badgeIssued: Boolean
-   - qrCode: String (URL)
-   - checkIn: Date
-   - checkOut: Date
-   - expectedCheckInFrom: Date
-   - expectedCheckInTo: Date
-   - createdAt: Date
+2. **Hosts**
+   - Basic information: name, department, employeeId, username, password, contact
+   - References: visits, preApproved, visitRequestQueue (arrays of Visitor IDs)
+   - Settings: preApprovalLimit
+   - Methods: password hashing and comparison
+
+3. **Gates**
+   - Basic information: name, loginId, password
+   - Methods: password hashing and comparison
+
+4. **Admins**
+   - Basic information: name, email, username, password
+   - Role information: status (Admin, SuperAdmin)
+   - Methods: password hashing and comparison
 
 ### Key Data Entities and Relationships
-
-#### User Schema
-```javascript
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true
-  },
-  email: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  password: {
-    type: String,
-    required: true
-  },
-  role: {
-    type: String,
-    enum: ['admin', 'host', 'gate'],
-    default: 'host'
-  },
-  department: {
-    type: String,
-    required: function() { return this.role === 'host'; }
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
-```
 
 #### Visitor Schema
 ```javascript
 const visitorSchema = new mongoose.Schema({
-  fullname: {
-    type: String,
-    required: true
-  },
-  email: {
-    type: String,
-    required: false
-  },
-  contact: {
-    type: String,
-    required: false
-  },
-  purpose: {
-    type: String,
-    required: true
-  },
-  organisation: {
-    type: String,
-    required: false
-  },
-  photo: {
-    type: String,
-    required: false
-  },
-  hostEmployee: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  status: {
-    type: String,
-    enum: ['Waiting', 'Approved', 'Declined', 'Checked-in', 'Checked-out'],
-    default: 'Waiting'
-  },
-  preApproved: {
-    type: Boolean,
-    default: false
-  },
-  badgeIssued: {
-    type: Boolean,
-    default: false
-  },
-  qrCode: {
-    type: String,
-    required: false
-  },
-  checkIn: {
-    type: Date,
-    default: null
-  },
-  checkOut: {
-    type: Date,
-    default: null
-  },
-  expectedCheckInFrom: {
-    type: Date,
-    required: function() { return this.preApproved === true; }
-  },
-  expectedCheckInTo: {
-    type: Date,
-    required: function() { return this.preApproved === true; }
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
+    fullname:{
+        type:String,
+        required:true,
+    },
+    email:{
+        type:String,
+    },
+    contact:{
+        type:String,
+    },
+    purpose:{
+        type:String,
+    },
+    hostEmployee:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Host' 
+    },
+    organisation:{
+        type:String
+    },
+    employeeId:{
+        type:String
+    },
+    photo:{
+        type:String,
+    },
+    status: {
+        type: String,
+        enum: ['Approved', 'Declined', 'Waiting', 'Checked-in', 'Checked-out'],
+        default: 'Waiting'
+    },
+    checkIn: {
+        type: Date,
+    },
+    checkOut: {
+        type: Date,
+    },
+    expectedCheckInFrom:{
+        type: Date,
+    },
+    expectedCheckInTo:{
+        type: Date,
+    },
+    preApproved:{
+        type:Boolean,
+        default:false
+    },
+    badge: {
+        qrCode: {
+          type: String, // base64 image or URL
+        },
+        issuedAt: {
+          type: Date,
+        }
+    },
+    gate: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Gate',
+    }
+}, {
+    timestamps: true
+});
+```
+
+#### Host Schema
+```javascript
+const hostSchema = new mongoose.Schema({
+    name:{
+        type:String,
+        required:true,
+        unique:true
+    },
+    department:{
+        type:String
+    },
+    employeeId:{
+        type:String
+    },
+    username:{
+        type:String,
+        required:true,
+        unique:true
+    },
+    password: {
+        type: String,
+        required: true,
+        minlength: 6
+    },
+    contact:{
+        type:String
+    },
+    visits: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Visitor' 
+    }],
+    preApproved:[{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Visitor' 
+    }],
+    preApprovalLimit: {
+        type: Number,
+        default: 10,
+        required: true
+    },
+    visitRequestQueue:[{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Visitor' 
+    }]
+});
+```
+
+#### Gate Schema
+```javascript
+const gateSchema = new mongoose.Schema({
+    name:{
+        type:String,
+        required:true,
+        unique:true
+    },
+    loginId:{
+        type:String,
+        required:true,
+        unique:true
+    },
+    password: {
+        type: String,
+        required: true,
+        minlength: 6
+    }
+});
+```
+
+#### Admin Schema
+```javascript
+const adminSchema = new mongoose.Schema({
+    status: {
+        type: String,
+        enum: ['Admin', 'SuperAdmin'], 
+    },
+    name:{
+        type:String,
+        required:true,
+    },
+    email:{
+        type:String,
+    },
+    username:{
+        type:String,
+        required:true,
+        unique:true
+    },
+    password: {
+        type: String,
+        required: true,
+        minlength: 6
+    }
 });
 ```
 
 #### Entity Relationships
-1. **Users to Visitors**:
+1. **Hosts to Visitors**:
    - One-to-many relationship
-   - A host (User) can have multiple visitors
-   - Each visitor is assigned to exactly one host
-   - Implemented via `hostEmployee` reference in Visitor schema
+   - A host can have multiple visitors (tracked in `visits` array)
+   - A host can pre-approve multiple visitors (tracked in `preApproved` array)
+   - A host can have multiple visitor requests waiting for approval (tracked in `visitRequestQueue` array)
+   - Each visitor is assigned to exactly one host (referenced by `hostEmployee` field)
 
-2. **Visitors to Badge/QR**:
-   - One-to-one relationship
-   - Each approved visitor gets a unique QR code
-   - QR code is stored as URL in the `qrCode` field
-   - Badge status is tracked via `badgeIssued` boolean field
+2. **Gate to Visitors**:
+   - Many-to-many relationship
+   - A gate staff can process many visitors
+   - A visitor can be associated with a gate (referenced by `gate` field)
 
-3. **Visitor Status Workflow**:
+3. **Badge to Visitors**:
+   - Embedded document relationship
+   - Each visitor can have one badge with QR code
+   - Badge information is embedded directly in the visitor document
+
+4. **Visitor Status Workflow**:
    - Workflow managed via `status` field
-   - Pre-approved visitors start as "Approved"
-   - Walk-in visitors start as "Waiting"
-   - Host approves/declines changing status to "Approved" or "Declined"
-   - Check-in updates status to "Checked-in"
-   - Check-out updates status to "Checked-out"
+   - Valid statuses: 'Approved', 'Declined', 'Waiting', 'Checked-in', 'Checked-out'
+   - Pre-approved visitors can be marked with the `preApproved` flag
+   - Check-in and check-out times are recorded in separate date fields
 
 ### Data Flow and Storage Strategies
 1. **Visitor Registration Flow**:
    - Visitor data is captured via form or pre-approved by host
    - Data is stored in MongoDB
-   - Photos and QR codes are stored in Cloudinary
+   - Photos and QR codes are stored as URLs, typically pointing to Cloudinary
 
 2. **Access Control Strategy**:
-   - Role-based permissions (admin, host, gate)
-   - Hosts can only access their own visitors
-   - Gate staff can access all visitors for the current day
-   - Admins have unrestricted access to all data
+   - Role-based segregation with separate models for Admin, Host, and Gate
+   - Hosts can only access their own visitors via the relationship arrays
+   - Gate staff can process all visitors but primarily focus on daily visitors
+   - Admins have administrative capabilities based on their status
 
 ## 4. Interface Design
 
