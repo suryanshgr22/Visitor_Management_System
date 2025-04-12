@@ -27,12 +27,27 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // Token expired or invalid, clear localStorage and redirect to login
+    // Only redirect for 401 errors if we have a token (meaning we were logged in before)
+    // and it's not a login attempt
+    if (error.response && 
+        error.response.status === 401 && 
+        localStorage.getItem('token') && 
+        !error.config.url.includes('login')) {
+      
+      console.log('Token expired, redirecting to appropriate login page');
+      
+      // Get role before clearing
+      const role = localStorage.getItem('role') || 'admin';
+      
+      // Clear auth data
       localStorage.removeItem('token');
+      localStorage.removeItem('role');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      
+      // Redirect to the proper login page
+      window.location.href = `/${role}/login`;
     }
+    
     return Promise.reject(error);
   }
 );

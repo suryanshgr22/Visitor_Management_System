@@ -22,7 +22,9 @@ const HostLogin = ({ onLogin }) => {
       onLogin(token, 'host', host);
       navigate('/host/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to login');
+      console.error('Login error:', err);
+      // Show error message
+      setError(err.response?.data?.message || 'Invalid credentials. Please try again.');
     } finally {
       setLoading(false);
     }

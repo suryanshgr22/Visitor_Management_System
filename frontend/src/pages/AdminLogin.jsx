@@ -22,7 +22,8 @@ export default function AdminLogin({ onLogin }) {
       onLogin(token, 'admin', admin);
       navigate('/admin/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to login');
+      console.error('Login error:', err);
+      setError(err.response?.data?.message || 'Invalid credentials. Please try again.');
     } finally {
       setLoading(false);
     }

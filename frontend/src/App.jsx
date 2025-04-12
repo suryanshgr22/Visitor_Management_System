@@ -117,18 +117,18 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/admin/login" />} />
         
+        {/* Fallback route for /login */}
+        <Route path="/login" element={<Navigate to="/admin/login" />} />
+        
         {/* Public routes */}
         <Route path="/admin/login" element={
-          user ? <Navigate to={`/${user.role}/dashboard`} /> : 
-          <AdminLogin onLogin={handleLogin} />
+          user ? <Navigate to={`/${user.role}/dashboard`} /> : <AdminLogin onLogin={handleLogin} />
         } />
         <Route path="/host/login" element={
-          user ? <Navigate to={`/${user.role}/dashboard`} /> : 
-          <HostLogin onLogin={handleLogin} />
+          user ? <Navigate to={`/${user.role}/dashboard`} /> : <HostLogin onLogin={handleLogin} />
         } />
         <Route path="/gate/login" element={
-          user ? <Navigate to={`/${user.role}/dashboard`} /> : 
-          <GateLogin onLogin={handleLogin} />
+          user ? <Navigate to={`/${user.role}/dashboard`} /> : <GateLogin onLogin={handleLogin} />
         } />
         
         {/* Protected routes */}
@@ -147,6 +147,9 @@ function App() {
           user.role !== 'gate' ? <Navigate to={`/${user.role}/dashboard`} /> : 
           <GateDashboard user={user} onLogout={handleLogout} socket={socket} />
         } />
+        
+        {/* Catch-all route for any unmatched routes */}
+        <Route path="*" element={<Navigate to="/admin/login" />} />
       </Routes>
     </Router>
   );
