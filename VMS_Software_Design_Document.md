@@ -31,7 +31,7 @@ The VMS follows a modern client-server architecture with a React frontend and No
 
 ### Architecture Diagram
 
-![Figure 1: VMS System Architecture showing the interactions between Frontend (React.js), Backend Server (Node.js, Express, Socket.io), Database (MongoDB), and Cloudinary (Media Storage)](./architecture-diagram.png)
+![Figure 1: VMS System Architecture showing the interactions between Frontend (React.js), Backend Server (Node.js, Express, Socket.io), Database (MongoDB), and Cloudinary (Media Storage)](achitechure.png)
 
 ### Technology Stack
 - **Frontend**: React.js with Hooks, Tailwind CSS, Socket.IO client, React Router, Axios
@@ -280,27 +280,37 @@ The system exposes RESTful APIs organized by user roles:
    - `POST /api/auth/refresh`: Refresh authentication token
 
 2. **Admin Endpoints**:
-   - `GET /api/admin/users`: Get all users
-   - `POST /api/admin/users`: Create new user
-   - `PUT /api/admin/users/:id`: Update user
-   - `DELETE /api/admin/users/:id`: Delete user
+   - `POST /api/admin/login`: Admin login
+   - `POST /api/admin/add`: Add a new admin
+   - `POST /api/admin/host/add`: Add a new host
+   - `DELETE /api/admin/host/delete`: Delete a host
+   - `GET /api/admin/hosts`: Get all hosts
+   - `PUT /api/admin/setLimit`: Set pre-approval limit for an individual host
+   - `PUT /api/admin/setLimitAll`: Set pre-approval limit for all hosts
+   - `POST /api/admin/gate/add`: Add a new gate
+   - `DELETE /api/admin/gate/delete`: Delete a gate
+   - `GET /api/admin/gates`: Get all gates
+   - `GET /api/admin/visitors`: Get all visitors
 
 3. **Host Endpoints**:
+   - `POST /api/host/login`: Host login
+   - `POST /api/host/visitor/add`: Add new pre-approved visitor
    - `GET /api/host/visitors`: Get all visitors for the host
-   - `GET /api/host/pending-requests`: Get pending approval requests
-   - `GET /api/host/pre-approved`: Get pre-approved visitors
-   - `POST /api/host/visitors`: Add new pre-approved visitor
-   - `PUT /api/host/approve/:id`: Approve visitor
-   - `PUT /api/host/decline/:id`: Decline visitor
-   - `POST /api/host/generate-qr/:id`: Generate QR code for visitor
+   - `GET /api/host/preApproved`: Get pre-approved visitors
+   - `GET /api/host/pendingReq`: Get pending approval requests
+   - `PUT /api/host/approve`: Approve visitor
+   - `PUT /api/host/decline`: Decline visitor
+   - `POST /api/host/generate-qr`: Generate QR code for visitor
 
 4. **Gate Endpoints**:
-   - `GET /api/gate/visitors`: Get today's visitors
+   - `POST /api/gate/login`: Gate login
+   - `POST /api/gate/addVisitor`: Register walk-in visitor
+   - `POST /api/gate/requestApproval`: Request approval for walk-in visitor
+   - `POST /api/gate/generateQR`: Generate QR code for approved visitor
    - `PUT /api/gate/checkin`: Check in visitor using QR code
    - `PUT /api/gate/checkout`: Check out visitor using QR code
-   - `POST /api/gate/visitor`: Register walk-in visitor
-   - `PUT /api/gate/req-approval`: Request approval for walk-in visitor
-   - `POST /api/gate/generate-qr/:id`: Generate QR code for approved visitor
+   - `GET /api/gate/todaysVisitors`: Get today's visitors
+   - `GET /api/gate/hosts`: Get all hosts
 
 ### External System Integrations
 - **Cloudinary**: For storing visitor photos and QR code images
