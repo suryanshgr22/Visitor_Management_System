@@ -7,7 +7,7 @@ import config from '../utils/config';
 import VisitorBadge from '../components/VisitorBadge';
 import VisitorCheckInOut from '../components/VisitorCheckInOut';
 
-export default function GateDashboard({ user, onLogout }) {
+export default function GateDashboard({ user, onLogout, socket }) {
   const [visitors, setVisitors] = useState([]);
   const [showAddVisitor, setShowAddVisitor] = useState(false);
   const [hosts, setHosts] = useState([]);
@@ -36,9 +36,48 @@ export default function GateDashboard({ user, onLogout }) {
   });
 
   useEffect(() => {
+    console.log('GateDashboard mounted, fetching initial data');
     fetchVisitors();
     fetchHosts();
-  }, []);
+
+    if (socket) {
+      console.log('Setting up socket listeners for gate:', user.data.id);
+      
+      // Listen for any visitor status updates
+      socket.on('visitorStatusUpdated', (data) => {
+        console.log('Socket event received - visitorStatusUpdated:', data);
+        console.log('Current gate ID:', user.data.id);
+        console.log('Socket event data:', JSON.stringify(data, null, 2));
+        fetchVisitors();
+        fetchHosts();
+      });
+
+      // Debug socket connection
+      socket.on('connect', () => {
+        console.log('Socket connected successfully');
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Socket disconnected');
+      });
+
+      socket.on('error', (error) => {
+        console.error('Socket error:', error);
+      });
+    } else {
+      console.warn('Socket not available in GateDashboard');
+    }
+
+    return () => {
+      if (socket) {
+        console.log('Cleaning up socket listeners');
+        socket.off('visitorStatusUpdated');
+        socket.off('connect');
+        socket.off('disconnect');
+        socket.off('error');
+      }
+    };
+  }, [socket, user.data.id]);
 
   const fetchHosts = async () => {
     try {
@@ -127,100 +166,63 @@ export default function GateDashboard({ user, onLogout }) {
     return true;
   };
 
-  const handleSubmit = async (e) => {
+  const handleAddVisitor = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
-    
     setLoading(true);
     setError('');
 
     try {
-      // First, upload the photo to Cloudinary if captured
-      let photoUrl = null;
-      if (capturedImage) {
-        try {
-          setUploadingPhoto(true);
-          console.log('Starting photo upload to Cloudinary...');
-          
-          // Create form data
-          const formData = new FormData();
-          
-          // Convert base64 to blob
-          const base64Data = capturedImage.split(',')[1]; // Remove the data URL prefix
-          const byteCharacters = atob(base64Data);
-          const byteArrays = [];
-          
-          for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-            const slice = byteCharacters.slice(offset, offset + 512);
-            const byteNumbers = new Array(slice.length);
-            
-            for (let i = 0; i < slice.length; i++) {
-              byteNumbers[i] = slice.charCodeAt(i);
-            }
-            
-            const byteArray = new Uint8Array(byteNumbers);
-            byteArrays.push(byteArray);
-          }
-          
-          const blob = new Blob(byteArrays, { type: 'image/jpeg' });
-          
-          // Append the blob to form data
-          formData.append('file', blob, 'visitor-photo.jpg');
-          formData.append('upload_preset', config.cloudinary.uploadPreset);
-          
-          console.log('Uploading to Cloudinary with preset:', config.cloudinary.uploadPreset);
-          
-          const uploadResponse = await fetch(
-            `https://api.cloudinary.com/v1_1/${config.cloudinary.cloudName}/image/upload`,
-            {
-              method: 'POST',
-              body: formData
-            }
-          );
-          
-          if (!uploadResponse.ok) {
-            const errorData = await uploadResponse.json();
-            console.error('Cloudinary upload failed:', errorData);
-            throw new Error(errorData.error?.message || 'Failed to upload photo');
-          }
-          
-          const data = await uploadResponse.json();
-          console.log('Cloudinary upload successful:', data);
-          photoUrl = data.secure_url;
-        } catch (error) {
-          console.error('Error uploading photo:', error);
-          setError(`Failed to upload photo: ${error.message}`);
-          setLoading(false);
-          setUploadingPhoto(false);
-          return;
-        } finally {
-          setUploadingPhoto(false);
-        }
+      if (!validateForm()) {
+        setLoading(false);
+        return;
       }
 
-      // Then submit the visitor data
+      // Convert base64 to blob for Cloudinary upload
+      const base64Data = capturedImage.split(',')[1];
+      const blob = await fetch(`data:image/jpeg;base64,${base64Data}`).then(res => res.blob());
+      
+      // Upload photo to Cloudinary
+      setUploadingPhoto(true);
+      const cloudinaryFormData = new FormData();
+      cloudinaryFormData.append('file', blob, 'visitor-photo.jpg');
+      cloudinaryFormData.append('upload_preset', config.cloudinary.uploadPreset);
+
+      const cloudinaryResponse = await fetch(
+        `https://api.cloudinary.com/v1_1/${config.cloudinary.cloudName}/image/upload`,
+        {
+          method: 'POST',
+          body: cloudinaryFormData
+        }
+      );
+
+      if (!cloudinaryResponse.ok) {
+        throw new Error('Failed to upload photo');
+      }
+
+      const cloudinaryData = await cloudinaryResponse.json();
+      console.log('Photo uploaded to Cloudinary:', cloudinaryData);
+
+      // Prepare visitor data with gateId
       const visitorData = {
         fullname: formData.fullname,
         purpose: formData.purpose,
-        email: formData.email || '',
-        contact: formData.contact || '',
-        organisation: formData.organisation || '',
-        employeeId: formData.employeeId || '',
+        email: formData.email,
+        contact: formData.contact,
+        organisation: formData.organisation,
+        employeeId: formData.employeeId,
         hostEmployee: formData.hostEmployee,
-        photo: photoUrl,
-        gateId: user.data.id // Set the gate ID from the logged-in user
+        photo: cloudinaryData.secure_url,
+        gateId: user.data.id  // Make sure gateId is included
       };
 
-      console.log('Submitting visitor data:', visitorData);
+      console.log('Adding new visitor with data:', visitorData);
       const response = await gateAPI.addVisitor(visitorData);
-      
+
       if (response && response.data) {
         console.log('Visitor added successfully:', response.data);
-        console.log('Response data structure:', JSON.stringify(response.data, null, 2));
         
         // Automatically request approval for the newly added visitor
         try {
-          // Check if the visitor ID exists in the response
           const visitorId = response.data.visitor?._id || response.data.visitor?.id || response.data._id || response.data.id;
           if (!visitorId) {
             console.error('No visitor ID found in response:', response.data);
@@ -228,42 +230,24 @@ export default function GateDashboard({ user, onLogout }) {
           }
           
           console.log('Requesting approval for visitor ID:', visitorId);
-          const approvalResponse = await gateAPI.requestApproval(visitorId, user.data.id);
-          console.log('Approval request response:', approvalResponse.data);
+          await gateAPI.requestApproval(visitorId, user.data.id);
+          console.log('Approval request sent successfully');
           
-          // Add socket event listener for approval status updates
-          if (socket) {
-            console.log('Setting up socket listener for visitor status updates');
-            socket.on('visitorStatusUpdated', (data) => {
-              console.log('Received visitor status update:', data);
-              if (data.visitorId === response.data._id) {
-                console.log('Status updated for current visitor:', data.status);
-                fetchVisitors(); // Refresh the visitors list
-              }
-            });
-          }
         } catch (approvalError) {
           console.error('Error requesting approval:', approvalError);
-          console.error('Approval error details:', {
-            message: approvalError.message,
-            response: approvalError.response?.data,
-            status: approvalError.response?.status
-          });
           // Don't block the success flow if approval request fails
         }
         
         setShowAddVisitor(false);
         resetForm();
         fetchVisitors();
-      } else {
-        console.error('Failed to add visitor: No response data');
-        setError('Failed to add visitor. Please try again.');
       }
     } catch (error) {
       console.error('Error adding visitor:', error);
-      setError(error.response?.data?.message || 'Failed to add visitor. Please try again.');
+      setError(error.response?.data?.message || 'Failed to add visitor');
     } finally {
       setLoading(false);
+      setUploadingPhoto(false);
     }
   };
 
@@ -354,7 +338,7 @@ export default function GateDashboard({ user, onLogout }) {
                     <img
                       src={visitor.photo}
                       alt={visitor.fullname}
-                      className="h-12 w-12 rounded-full"
+                      className="h-12 w-12 rounded-full object-cover object-center"
                     />
                   )}
                   <div>
@@ -404,7 +388,7 @@ export default function GateDashboard({ user, onLogout }) {
                 ×
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-2">
+            <form onSubmit={handleAddVisitor} className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">

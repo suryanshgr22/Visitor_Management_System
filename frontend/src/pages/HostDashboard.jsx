@@ -21,6 +21,8 @@ export default function HostDashboard({ user, onLogout, socket }) {
     expectedCheckInTo: ''
   });
   const { toPDF, targetRef } = usePDF({ filename: 'visitor-badge.pdf' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     console.log('HostDashboard mounted, fetching initial data');
@@ -29,15 +31,20 @@ export default function HostDashboard({ user, onLogout, socket }) {
     fetchPreApprovedVisitors();
 
     if (socket) {
-      console.log('Setting up socket listeners');
-      socket.on('new-visit-request', (request) => {
-        console.log('Received new visit request:', request);
-        setPendingRequests((prev) => [...prev, request]);
+      console.log('Setting up socket listeners for host:', user.data.id);
+      
+      // Listen for new approval requests
+      socket.on('newApprovalRequest', (data) => {
+        console.log('Received new approval request:', data);
+        // Refresh pending requests when a new request arrives
+        fetchPendingRequests();
         setShowNotifications(true);
       });
 
+      // Listen for visitor status updates
       socket.on('visitorStatusUpdated', (data) => {
         console.log('Received visitor status update:', data);
+        // Refresh all visitor lists when status changes
         fetchVisitors();
         fetchPendingRequests();
         fetchPreApprovedVisitors();
@@ -47,21 +54,20 @@ export default function HostDashboard({ user, onLogout, socket }) {
     return () => {
       if (socket) {
         console.log('Cleaning up socket listeners');
-        socket.off('new-visit-request');
+        socket.off('newApprovalRequest');
         socket.off('visitorStatusUpdated');
       }
     };
-  }, [socket]);
+  }, [socket, user.data.id]);
 
   const fetchVisitors = async () => {
     try {
-      console.log('Fetching visitors list');
+      console.log('Fetching all visitors');
       const response = await hostAPI.getVisitors();
-      console.log('Visitors fetched:', response.data.visitors);
+      console.log('Visitors fetched:', response.data);
       setVisitors(response.data.visitors || []);
     } catch (error) {
-      console.error('Error fetching visitors:', error);
-      setVisitors([]);
+      console.error(' Error fetching visitors:', error);
     }
   };
 
@@ -69,11 +75,10 @@ export default function HostDashboard({ user, onLogout, socket }) {
     try {
       console.log('Fetching pending requests');
       const response = await hostAPI.getPendingRequests();
-      console.log('Pending requests fetched:', response.data.visitors);
+      console.log('Pending requests fetched:', response.data);
       setPendingRequests(response.data.visitors || []);
     } catch (error) {
-      console.error('Error fetching pending requests:', error);
-      setPendingRequests([]);
+      console.error(' Error fetching pending requests:', error);
     }
   };
 
@@ -81,11 +86,10 @@ export default function HostDashboard({ user, onLogout, socket }) {
     try {
       console.log('Fetching pre-approved visitors');
       const response = await hostAPI.getPreApprovedVisitors();
-      console.log('Pre-approved visitors fetched:', response.data.visitors);
+      console.log('Pre-approved visitors fetched:', response.data);
       setPreApprovedVisitors(response.data.visitors || []);
     } catch (error) {
       console.error('Error fetching pre-approved visitors:', error);
-      setPreApprovedVisitors([]);
     }
   };
 
@@ -93,13 +97,34 @@ export default function HostDashboard({ user, onLogout, socket }) {
     try {
       console.log('Approving visitor:', visitorId);
       const response = await hostAPI.approveVisitor(visitorId);
-      console.log('Approve response:', response);
-      setPendingRequests((prev) =>
-        prev.filter((request) => request._id !== visitorId)
-      );
+      console.log('Approval response:', response.data);
+      
+      // Update local state
+      setPendingRequests(prev => prev.filter(v => v._id !== visitorId));
+      setShowNotifications(false);
       setShowVisitorDetails(false);
+      
+      // Refresh all visitor data to ensure everything is in sync
       fetchVisitors();
+      fetchPendingRequests();
       fetchPreApprovedVisitors();
+      
+      // Emit a socket event to notify the gate of the status change
+      if (socket) {
+        console.log('Emitting visitorStatusUpdated event for visitor:', visitorId);
+        socket.emit('visitorStatusUpdated', { 
+          visitorId, 
+          status: 'Approved',
+          timestamp: new Date().toISOString()
+        });
+        
+        // Also emit a more specific event for the gate
+        socket.emit('gateNotification', {
+          type: 'visitorApproved',
+          visitorId,
+          message: 'A visitor has been approved'
+        });
+      }
     } catch (error) {
       console.error('Error approving visitor:', error);
     }
@@ -108,12 +133,12 @@ export default function HostDashboard({ user, onLogout, socket }) {
   const handleDecline = async (visitorId) => {
     try {
       console.log('Declining visitor:', visitorId);
-      const response = await hostAPI.declineVisitor(visitorId);
-      console.log('Decline response:', response);
-      setPendingRequests((prev) =>
-        prev.filter((request) => request._id !== visitorId)
-      );
-      setShowVisitorDetails(false);
+      const response = await hostAPI.decline(visitorId);
+      console.log('Decline response:', response.data);
+      
+      // The socket event will trigger a refresh, but we can also update locally
+      setPendingRequests(prev => prev.filter(v => v._id !== visitorId));
+      setShowNotifications(false);
     } catch (error) {
       console.error('Error declining visitor:', error);
     }
@@ -121,6 +146,14 @@ export default function HostDashboard({ user, onLogout, socket }) {
 
   const handleGenerateQR = async (visitor) => {
     try {
+      if (!visitor.preApproved) {
+        console.error('Visitor is not pre-approved');
+        return;
+      }
+      if (visitor.status !== 'Approved') {
+        console.error('Visitor is not approved yet');
+        return;
+      }
       console.log('Generating QR code for visitor:', visitor._id);
       const response = await hostAPI.generateQR(visitor._id);
       console.log('QR code generated:', response.data);
@@ -250,12 +283,14 @@ export default function HostDashboard({ user, onLogout, socket }) {
                     Expected: {new Date(visitor.expectedCheckInFrom).toLocaleString()}
                   </p>
                 </div>
-                <button
-                  onClick={() => handleGenerateQR(visitor)}
-                  className="mt-2 w-full px-3 py-1 text-sm text-indigo-600 border border-indigo-600 rounded hover:bg-indigo-50"
-                >
-                  Generate Badge
-                </button>
+                {visitor.status === 'Approved' && (
+                  <button
+                    onClick={() => handleGenerateQR(visitor)}
+                    className="mt-2 w-full px-3 py-1 text-sm text-indigo-600 border border-indigo-600 rounded hover:bg-indigo-50"
+                  >
+                    Generate Badge
+                  </button>
+                )}
               </div>
             ))}
           </div>
