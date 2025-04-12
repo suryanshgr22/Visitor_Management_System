@@ -26,6 +26,12 @@ A modern, full-stack visitor management solution designed to streamline the chec
 - Real-time updates on visitor status changes
 - Visitor badge generation
 
+### Performance Features
+- Redis caching for visitor details with in-memory fallback
+- Configurable cache expiration
+- Cache invalidation on data updates
+- Asynchronous cache operations
+
 ### Visitor Experience
 - Pre-registration through hosts
 - Quick check-in/check-out with QR codes
@@ -46,6 +52,7 @@ A modern, full-stack visitor management solution designed to streamline the chec
 - MongoDB with Mongoose ORM
 - JWT for authentication
 - Socket.IO for real-time communication
+- Redis for caching visitor details
 - RESTful API architecture
 
 ## 🚀 Getting Started
@@ -53,6 +60,7 @@ A modern, full-stack visitor management solution designed to streamline the chec
 ### Prerequisites
 - Node.js (v14 or newer)
 - MongoDB (local or Atlas connection)
+- Redis (v5 or newer) - optional, has in-memory fallback
 - npm or yarn package manager
 
 ### Installation
@@ -74,6 +82,16 @@ Create a `.env` file in the backend directory with the following variables:
 PORT=5000
 MONGODB_URI=mongodb://localhost:27017/visitor-management
 JWT_SECRET=your_jwt_secret_key
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_CACHE_EXPIRATION=3600
+USE_REDIS=true
+```
+
+If you don't have Redis installed or wish to use the in-memory cache fallback, set:
+```
+USE_REDIS=false
 ```
 
 #### Set up the frontend
@@ -138,6 +156,18 @@ The API follows RESTful principles with the following main endpoints:
 
 For detailed API documentation, see the [API docs](docs/api.md).
 
+## 🔐 Caching System
+
+The application uses Redis for caching visitor details to improve performance:
+
+### Features
+- **Automatic fallback**: Falls back to in-memory caching when Redis is unavailable
+- **Configurable caching**: Adjust cache expiration via environment variables
+- **Cache invalidation**: Automatically invalidates cache on data updates
+- **Transparent operation**: System continues to work without interruption if Redis is unavailable
+
+For detailed documentation on the caching implementation, see [Redis Documentation](backend/REDIS.md).
+
 ## 🔒 Security Features
 
 - JWT-based authentication
@@ -179,4 +209,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Node.js](https://nodejs.org/)
 - [MongoDB](https://www.mongodb.com/)
 - [Tailwind CSS](https://tailwindcss.com/)
-- [Socket.IO](https://socket.io/) 
+- [Socket.IO](https://socket.io/)
+- [Redis](https://redis.io/) 

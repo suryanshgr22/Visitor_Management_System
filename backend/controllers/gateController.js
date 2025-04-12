@@ -4,6 +4,9 @@ const Visitor = require('../models/Visitor');
 const Host = require('../models/Host');
 const {generateQRCode} = require('../utils/generateQRCode');
 const dayjs = require('dayjs');
+const bcrypt = require('bcryptjs');
+const QRCode = require('qrcode');
+const { setVisitorCache, invalidateVisitorCache } = require('../config/redis');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -17,7 +20,7 @@ const loginGate = async (req, res) => {
   try {
     const gate = await Gate.findOne({ loginId });
 
-    if (!gate || !(await gate.matchPassword(password))) {
+    if (!gate || !(await bcrypt.compare(password, gate.password))) {
       return res.status(401).json({ message: 'Invalid login credentials' });
     }
 
@@ -135,6 +138,35 @@ const checkIn = async (req, res) => {
     visitor.status = 'Checked-in';
     await visitor.save();
 
+    // Cache the updated visitor data
+    const visitorData = {
+      _id: visitor._id,
+      fullname: visitor.fullname,
+      photo: visitor.photo,
+      email: visitor.email,
+      contact: visitor.contact,
+      purpose: visitor.purpose,
+      organisation: visitor.organisation,
+      status: visitor.status,
+      checkIn: visitor.checkIn
+    };
+
+    // Set cache asynchronously, don't wait for it
+    setVisitorCache(visitor._id.toString(), visitorData)
+      .catch(err => console.error('Redis caching error:', err));
+
+    // Notify host that their visitor has checked in
+    if (visitor.hostEmployee) {
+      const hostSocket = req.hostSockets.get(visitor.hostEmployee.toString());
+      if (hostSocket) {
+        hostSocket.emit('visitorCheckedIn', {
+          visitorId: visitor._id,
+          visitorName: visitor.fullname,
+          time: visitor.checkIn
+        });
+      }
+    }
+
     res.status(200).json({ message: 'Visitor checked-in',  info: {
       fullname: visitor.fullname,
       photo: visitor.photo,
@@ -147,8 +179,6 @@ const checkIn = async (req, res) => {
     res.status(500).json({ message: 'Error during check-in', error: err.message });
   }
 };
-
-
 
 const checkOut = async (req, res) => {
   const { visitorId } = req.body;
@@ -168,6 +198,36 @@ const checkOut = async (req, res) => {
     visitor.status = 'Checked-out';
     await visitor.save();
 
+    // Cache the updated visitor data
+    const visitorData = {
+      _id: visitor._id,
+      fullname: visitor.fullname,
+      photo: visitor.photo,
+      email: visitor.email,
+      contact: visitor.contact,
+      purpose: visitor.purpose,
+      organisation: visitor.organisation,
+      status: visitor.status,
+      checkIn: visitor.checkIn,
+      checkOut: visitor.checkOut
+    };
+
+    // Set cache asynchronously, don't wait for it
+    setVisitorCache(visitor._id.toString(), visitorData)
+      .catch(err => console.error('Redis caching error:', err));
+
+    // Notify host that their visitor has checked out
+    if (visitor.hostEmployee) {
+      const hostSocket = req.hostSockets.get(visitor.hostEmployee.toString());
+      if (hostSocket) {
+        hostSocket.emit('visitorCheckedOut', {
+          visitorId: visitor._id,
+          visitorName: visitor.fullname,
+          time: visitor.checkOut
+        });
+      }
+    }
+
     res.status(200).json({ message: 'Visitor checked-out', 
       info: {
         fullname: visitor.fullname,
@@ -182,7 +242,6 @@ const checkOut = async (req, res) => {
     res.status(500).json({ message: 'Error during check-out', error: err.message });
   }
 };
-
 
 const reqApproval = async (req, res) => {
   const { visitorId, gateId } = req.body;
@@ -226,17 +285,23 @@ const reqApproval = async (req, res) => {
     await visitor.save();
     console.log('Visitor status updated');
 
-    // 🔔 Real-time notify host via socket
-    const hostSocket = req.hostSockets.get(host._id.toString());
+    // Invalidate cache for this visitor
+    invalidateVisitorCache(visitor._id.toString())
+      .catch(err => console.error('Redis cache invalidation error:', err));
+
+    // Notify the host if they're connected
+    const hostSocket = req.hostSockets.get(visitor.hostEmployee._id.toString());
     if (hostSocket) {
-      console.log('Sending socket notification to host');
-      hostSocket.emit('newApprovalRequest', {
+      console.log('Emitting to host socket:', visitor.hostEmployee._id.toString());
+      hostSocket.emit('approvalRequest', {
         message: 'New visitor approval request',
         visitorId: visitor._id.toString(),
+        visitorName: visitor.fullname,
+        purpose: visitor.purpose,
+        timestamp: new Date()
       });
-      console.log('Socket notification sent');
     } else {
-      console.log('Host socket not found');
+      console.log('Host not connected:', visitor.hostEmployee._id.toString());
     }
 
     console.log('Approval request processed successfully');
@@ -275,6 +340,10 @@ const generateQR = async (req, res) => {
       issuedAt: new Date(),
     };
     await visitor.save();
+
+    // Invalidate cache for this visitor
+    invalidateVisitorCache(visitor._id.toString())
+      .catch(err => console.error('Redis cache invalidation error:', err));
 
     res.status(200).json({
       message: 'QR code generated',

@@ -4,6 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const connectDB = require('./db/index.js');
 const cors = require('cors');
+const { client: redisClient } = require('./config/redis');
 const app = express();
 
 // MongoDB connection
@@ -71,3 +72,13 @@ app.use('/api/host', require('./routes/host.js'));
 // Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Handle graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Shutting down server gracefully...');
+  redisClient.quit();
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});

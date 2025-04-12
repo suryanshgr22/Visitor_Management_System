@@ -4,6 +4,7 @@ const Visitor = require('../models/Visitor');
 const {generateQRCode} = require('../utils/generateQRCode');
 const dayjs = require('dayjs');
 const {io} = require('../index');
+const { invalidateVisitorCache } = require('../config/redis');
 
 const loginHost = async (req, res) => {
   const { username, password } = req.body;
@@ -102,6 +103,10 @@ const addVisitor = async (req, res) => {
     await Host.findByIdAndUpdate(hostId, {
       $push: { preApproved: newVisitor._id },
     });
+
+    // Invalidate cache for this visitor
+    invalidateVisitorCache(newVisitor._id.toString())
+      .catch(err => console.error('Redis cache invalidation error:', err));
 
     res.status(201).json({
       message: 'Visitor added and pre-approved successfully.',
@@ -211,6 +216,10 @@ const approve = async (req, res) => {
     await visitor.save();
     console.log('Visitor status updated');
 
+    // Invalidate cache for this visitor
+    invalidateVisitorCache(visitor._id.toString())
+      .catch(err => console.error('Redis cache invalidation error:', err));
+
     // Remove visitor from queue
     console.log('Removing visitor from host queue');
     host.visitRequestQueue = host.visitRequestQueue.filter(
@@ -289,6 +298,10 @@ const decline = async (req, res) => {
     visitor.status = 'Declined';
     await visitor.save();
     console.log('Visitor status updated');
+
+    // Invalidate cache for this visitor
+    invalidateVisitorCache(visitor._id.toString())
+      .catch(err => console.error('Redis cache invalidation error:', err));
 
     // Remove visitor from visitRequestQueue
     console.log('Removing visitor from host queue');
@@ -375,6 +388,10 @@ const generateQRForHost = async (req, res) => {
     };
 
     await visitor.save();
+
+    // Invalidate cache for this visitor
+    invalidateVisitorCache(visitor._id.toString())
+      .catch(err => console.error('Redis cache invalidation error:', err));
 
     res.status(200).json({
       message: 'QR code generated successfully',
