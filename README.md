@@ -1,6 +1,6 @@
 # Visitor Management System
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+
 
 A modern, full-stack visitor management solution designed to streamline the check-in/check-out process for organizations of all sizes. This system offers an intuitive interface for hosts to manage visitors and for gate staff to process arrivals and departures efficiently.
 
@@ -55,6 +55,9 @@ A modern, full-stack visitor management solution designed to streamline the chec
 - Redis for caching visitor details
 - RESTful API architecture
 - Cloudinary for image storage and management
+
+![Architecture Diagram](./arch.png)
+
 
 ## 🚀 Getting Started
 
@@ -216,9 +219,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📜 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 👥 Authors
 
