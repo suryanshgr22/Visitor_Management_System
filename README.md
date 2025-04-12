@@ -54,6 +54,7 @@ A modern, full-stack visitor management solution designed to streamline the chec
 - Socket.IO for real-time communication
 - Redis for caching visitor details
 - RESTful API architecture
+- Cloudinary for image storage and management
 
 ## 🚀 Getting Started
 
@@ -87,6 +88,9 @@ REDIS_PORT=6379
 REDIS_PASSWORD=
 REDIS_CACHE_EXPIRATION=3600
 USE_REDIS=true
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 ```
 
 If you don't have Redis installed or wish to use the in-memory cache fallback, set:
@@ -167,6 +171,23 @@ The application uses Redis for caching visitor details to improve performance:
 - **Transparent operation**: System continues to work without interruption if Redis is unavailable
 
 For detailed documentation on the caching implementation, see [Redis Documentation](backend/REDIS.md).
+
+## 📸 Media Storage with Cloudinary
+
+The system uses Cloudinary for storing and managing visitor photos and QR code images:
+
+### Features
+- **Secure image uploads**: Direct uploads to Cloudinary with signature verification
+- **Optimized storage**: Automatic image optimization and compression
+- **Fast delivery**: Global CDN for quick image loading
+- **Dynamic transformations**: On-the-fly image resizing and formatting
+- **Badge generation**: QR codes and visitor badges are generated and stored in Cloudinary
+
+### Implementation
+- Visitor photos are captured during registration or check-in
+- QR codes for visitor badges are generated and stored as images
+- Images are served directly from Cloudinary's CDN for optimal performance
+- Environment variables control Cloudinary configuration
 
 ## 🔒 Security Features
 
