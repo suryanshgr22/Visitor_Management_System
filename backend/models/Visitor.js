@@ -60,7 +60,7 @@ const visitorSchema = new mongoose.Schema({
     gate: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Gate',
-      }
+    }
 
 
 },{

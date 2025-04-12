@@ -3,6 +3,7 @@ const Host = require('../models/Host');
 const Visitor = require('../models/Visitor');
 const {generateQRCode} = require('../utils/generateQRCode');
 const dayjs = require('dayjs');
+const {io} = require('../index');
 
 const loginHost = async (req, res) => {
   const { username, password } = req.body;
@@ -223,14 +224,23 @@ const approve = async (req, res) => {
     if (gateId) {
       console.log('Finding gate socket:', gateId);
       const gateSocket = req.gateSockets.get(gateId);
+      // console.log(gateSocket);
       if (gateSocket) {
         console.log('Sending socket notification to gate');
-        gateSocket.emit('visitorStatusUpdated', {
+        // gateSocket.emit('visitorStatusUpdated', {
+        //   visitorId: visitor._id.toString(),
+        //   status: 'Approved',
+        // });
+        req.io.emit('visitorStatusUpdated', {
           visitorId: visitor._id.toString(),
           status: 'Approved',
         });
         console.log('Socket notification sent');
       } else {
+        req.io.emit('visitorStatusUpdated', {
+          visitorId: visitor._id.toString(),
+          status: 'Approved',
+        });
         console.log('Gate socket not found');
       }
     } else {

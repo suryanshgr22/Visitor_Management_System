@@ -46,10 +46,7 @@ export default function GateDashboard({ user, onLogout, socket }) {
       // Listen for any visitor status updates
       socket.on('visitorStatusUpdated', (data) => {
         console.log('Socket event received - visitorStatusUpdated:', data);
-        console.log('Current gate ID:', user.data.id);
-        console.log('Socket event data:', JSON.stringify(data, null, 2));
         fetchVisitors();
-        fetchHosts();
       });
 
       // Debug socket connection

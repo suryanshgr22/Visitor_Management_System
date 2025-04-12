@@ -59,15 +59,18 @@ const addVisitor = async (req, res) => {
     if (!fullname || !purpose || !hostEmployee || !photo || !gateId) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
-
+    console.log("Gate Id recieved : ", gateId)
     if (!email && !contact) {
       return res.status(400).json({ message: 'Either email or contact is required' });
     }
 
     // Verify host exists
     const host = await Host.findById(hostEmployee);
-    const gate = await Host.findById(gateId);
+    const gate = await Gate.findById(gateId);
     if (!host) {
+      return res.status(404).json({ message: 'Host not found' });
+    }
+    if(!gate){
       return res.status(404).json({ message: 'Host not found' });
     }
 
@@ -80,7 +83,7 @@ const addVisitor = async (req, res) => {
       employeeId,
       hostEmployee,
       photo,
-      gate
+      gate: gate._id
     });
 
     await newVisitor.save();
