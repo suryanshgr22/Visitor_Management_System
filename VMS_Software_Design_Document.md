@@ -31,7 +31,7 @@ The VMS follows a modern client-server architecture with a React frontend and No
 
 ### Architecture Diagram
 
-![Figure 1: VMS System Architecture showing the interactions between Frontend (React.js), Backend Server (Node.js, Express, Socket.io), Database (MongoDB), and Cloudinary (Media Storage)](./architecture-diagram.png)
+![Figure 1: VMS System Architecture showing the interactions between Frontend (React.js), Backend Server (Node.js, Express, Socket.io), Database (MongoDB), and Cloudinary (Media Storage)](achitechure.png)
 
 ### Technology Stack
 - **Frontend**: React.js with Hooks, Tailwind CSS, Socket.IO client, React Router, Axios
