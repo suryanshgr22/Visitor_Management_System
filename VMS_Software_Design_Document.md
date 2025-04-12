@@ -276,11 +276,12 @@ const adminSchema = new mongoose.Schema({
 The system exposes RESTful APIs organized by user roles:
 
 1. **Authentication Endpoints**:
-   - `POST /api/auth/login`: User login
-   - `POST /api/auth/refresh`: Refresh authentication token
+   Each user role has its own direct login endpoint:
+   - `POST /api/admin/login`: Admin login
+   - `POST /api/host/login`: Host login
+   - `POST /api/gate/login`: Gate login
 
 2. **Admin Endpoints**:
-   - `POST /api/admin/login`: Admin login
    - `POST /api/admin/add`: Add a new admin
    - `POST /api/admin/host/add`: Add a new host
    - `DELETE /api/admin/host/delete`: Delete a host
@@ -293,7 +294,6 @@ The system exposes RESTful APIs organized by user roles:
    - `GET /api/admin/visitors`: Get all visitors
 
 3. **Host Endpoints**:
-   - `POST /api/host/login`: Host login
    - `POST /api/host/visitor/add`: Add new pre-approved visitor
    - `GET /api/host/visitors`: Get all visitors for the host
    - `GET /api/host/preApproved`: Get pre-approved visitors
@@ -303,7 +303,6 @@ The system exposes RESTful APIs organized by user roles:
    - `POST /api/host/generate-qr`: Generate QR code for visitor
 
 4. **Gate Endpoints**:
-   - `POST /api/gate/login`: Gate login
    - `POST /api/gate/addVisitor`: Register walk-in visitor
    - `POST /api/gate/requestApproval`: Request approval for walk-in visitor
    - `POST /api/gate/generateQR`: Generate QR code for approved visitor
@@ -326,9 +325,11 @@ The system exposes RESTful APIs organized by user roles:
 ### Major Components
 
 1. **Authentication Module**
-   - Handles user login and authentication
-   - Manages JWT generation and validation
-   - Implements role-based access control
+   - Each user type (admin, host, gate) has its own login endpoint
+   - JWT tokens are used for session management and authentication
+   - Middleware-based authentication for protected routes
+   - Role-based access control to restrict endpoint access
+   - No token refresh mechanism; sessions expire based on JWT lifetime
 
 2. **Admin Dashboard**
    - User management (create, read, update, delete)
