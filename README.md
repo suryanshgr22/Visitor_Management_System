@@ -3,7 +3,8 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 A modern, full-stack visitor management solution designed to streamline the check-in/check-out process for organizations of all sizes. This system offers an intuitive interface for hosts to manage visitors and for gate staff to process arrivals and departures efficiently.
-[![Watch the video](https://img.youtube.com/vi/watch?v=U085pv0QHtw/hqdefault.jpg)](https://www.youtube.com/embed/watch?v=U085pv0QHtw)
+[![Watch the video](https://img.youtube.com/vi/U085pv0QHtw/maxresdefault.jpg)](https://www.youtube.com/watch?v=U085pv0QHtw)
+
 ## 📋 Features
 
 ### Admin Features
