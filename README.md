@@ -1,6 +1,5 @@
 # Visitor Management System
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 A modern, full-stack visitor management solution designed to streamline the check-in/check-out process for organizations of all sizes. This system offers an intuitive interface for hosts to manage visitors and for gate staff to process arrivals and departures efficiently.
 # Watch the video (Click on the image)
@@ -152,6 +151,8 @@ The API follows RESTful principles with the following main endpoints:
 - Custom badge design options
 - Visitor analytics and reporting
 - Multi-location support
+
+## For more details, check the VMS_Software_Design_Document.md
 
 ## 🤝 Contributing
 
