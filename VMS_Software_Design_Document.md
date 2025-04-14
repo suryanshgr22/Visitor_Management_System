@@ -11,7 +11,6 @@ The Visitor Management System (VMS) is a comprehensive digital solution designed
 - Provide real-time notifications for hosts when visitors arrive
 - Generate QR codes for streamlined check-in/check-out
 - Collect and securely store visitor information
-- Provide analytics and reporting capabilities
 - Support multiple user roles with appropriate access controls
 
 ### Target Audience
