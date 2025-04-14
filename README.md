@@ -124,35 +124,31 @@ The system is initialized with the following default accounts:
 
 1. **Admin** creates host accounts and gate staff accounts
 2. **Hosts** pre-approve visitors or approve incoming visitor requests
-3. **Gate Staff** scans visitor QR codes or processes walk-ins
-4. **Visitors** receive digital badges with QR codes for building access
-5. **Hosts** receive notifications when their visitors check in
+3. **Gate Staff** scans visitor QR codes or processes walk-ins by sending approval request to respective host.
+4. **Visitors** receive digital badges with QR codes for access.
+5. **Hosts** receive notifications when gate staff send request for approval for a visitor
 
 ## 📄 API Documentation
 
 The API follows RESTful principles with the following main endpoints:
 
-- `/api/auth`: Authentication endpoints
+
 - `/api/admin`: Admin management endpoints
 - `/api/host`: Host operations endpoints
 - `/api/gate`: Gate operations endpoints
-- `/api/visitors`: Visitor data endpoints
 
-For detailed API documentation, see the [API docs](docs/api.md).
+
+
 
 ## 🔒 Security Features
 
 - JWT-based authentication
 - Role-based access control
 - Password hashing with bcrypt
-- HTTPS support in production
-- Input validation and sanitization
 
 ## 📊 Future Enhancements
 
 - Email and SMS notifications
-- Visitor photo capture
-- Integration with ID scanners
 - Custom badge design options
 - Visitor analytics and reporting
 - Multi-location support
@@ -167,9 +163,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📜 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 👥 Authors
 
