@@ -5,7 +5,7 @@ const config = {
     uploadPreset: window.ENV?.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'visitor_photos'
   },
   api: {
-    baseUrl: window.ENV?.REACT_APP_API_URL || 'http://localhost:5000'
+    baseUrl: window.ENV?.REACT_APP_API_URL || 'https://visitor-management-system-backend-2enn.onrender.com'
   }
 };
 
